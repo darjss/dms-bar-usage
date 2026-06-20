@@ -33,33 +33,6 @@ PluginSettings {
         unit: "s"
     }
 
-    SliderSetting {
-        settingKey: "warnPct"
-        label: "Warn at"
-        description: "Percentage that triggers amber color"
-        minimum: 50
-        maximum: 100
-        defaultValue: 80
-        unit: "%"
-    }
-
-    SliderSetting {
-        settingKey: "criticalPct"
-        label: "Critical at"
-        description: "Percentage that triggers red color"
-        minimum: 50
-        maximum: 100
-        defaultValue: 95
-        unit: "%"
-    }
-
-    ToggleSetting {
-        settingKey: "showWeekly"
-        label: "Show weekly %"
-        description: "Display the 7-day window percentage alongside the 5h percentage"
-        defaultValue: true
-    }
-
     ToggleSetting {
         settingKey: "showCredits"
         label: "Show credits in popout"

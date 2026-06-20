@@ -10,9 +10,6 @@ PluginComponent {
 
     // --- settings (auto-persisted via pluginData) ---
     property int refreshSeconds: pluginData.refreshSeconds || 5
-    property int warnPct: pluginData.warnPct || 80
-    property int criticalPct: pluginData.criticalPct || 95
-    property bool showWeekly: pluginData.showWeekly === false ? false : true
     property bool showCredits: pluginData.showCredits === false ? false : true
 
     // --- runtime state ---
@@ -29,21 +26,6 @@ PluginComponent {
 
     // --- helpers ---
 
-    function colorForPct(pct) {
-        if (!codexAvailable) return Theme.widgetTextColor
-        if (pct >= criticalPct) return Theme.tempDanger
-        if (pct >= warnPct) return Theme.tempWarning
-        return Theme.widgetTextColor
-    }
-
-    function iconColor() {
-        if (!codexAvailable) return Theme.widgetIconColor
-        var maxPct = Math.max(primaryPct, secondaryPct)
-        if (maxPct >= criticalPct) return Theme.tempDanger
-        if (maxPct >= warnPct) return Theme.tempWarning
-        return Theme.widgetIconColor
-    }
-
     function formatDuration(seconds) {
         if (seconds <= 0) return "now"
         var days = Math.floor(seconds / 86400)
@@ -57,13 +39,6 @@ PluginComponent {
     function resetInSec(resetAt) {
         var now = Math.floor(Date.now() / 1000)
         return Math.max(0, resetAt - now)
-    }
-
-    function barText() {
-        if (!codexAvailable) return "--"
-        var p = Math.round(primaryPct) + "%"
-        if (showWeekly) p += " \u00b7 " + Math.round(secondaryPct) + "%"
-        return p
     }
 
     // --- data fetching ---
@@ -116,11 +91,10 @@ PluginComponent {
 
     Component.onCompleted: root.refresh()
 
-    // --- bar pills ---
+    // --- bar pills (icon only) ---
 
     horizontalBarPill: Component {
-        Row {
-            spacing: Theme.spacingXS
+        Item {
             anchors.verticalCenter: parent.verticalCenter
 
             DankIcon {
@@ -128,47 +102,14 @@ PluginComponent {
                 size: Theme.barIconSize(root.barThickness, undefined,
                         root.barConfig ? root.barConfig.maximizeWidgetIcons : false,
                         root.barConfig ? root.barConfig.iconScale : 1)
-                color: root.iconColor()
-                anchors.verticalCenter: parent.verticalCenter
-            }
-
-            Item {
-                anchors.verticalCenter: parent.verticalCenter
-                implicitWidth: root.minimumWidth ? Math.max(baselineMetrics.width, currentMetrics.width) : currentMetrics.width
-                implicitHeight: barLabel.implicitHeight
-                width: implicitWidth
-                height: implicitHeight
-
-                StyledTextMetrics {
-                    id: baselineMetrics
-                    text: root.showWeekly ? "100% \u00b7 100%" : "100%"
-                    font.pixelSize: Theme.barTextSize(root.barThickness,
-                        root.barConfig ? root.barConfig.fontScale : 1,
-                        root.barConfig ? root.barConfig.maximizeWidgetText : false)
-                }
-
-                StyledTextMetrics {
-                    id: currentMetrics
-                    text: barLabel.text
-                    font.pixelSize: baselineMetrics.font.pixelSize
-                }
-
-                StyledText {
-                    id: barLabel
-                    text: root.barText()
-                    font.pixelSize: baselineMetrics.font.pixelSize
-                    color: root.colorForPct(root.primaryPct)
-                    anchors.fill: parent
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                }
+                color: Theme.widgetIconColor
+                anchors.centerIn: parent
             }
         }
     }
 
     verticalBarPill: Component {
-        Column {
-            spacing: Theme.spacingXS
+        Item {
             anchors.horizontalCenter: parent.horizontalCenter
 
             DankIcon {
@@ -176,15 +117,8 @@ PluginComponent {
                 size: Theme.barIconSize(root.barThickness, undefined,
                         root.barConfig ? root.barConfig.maximizeWidgetIcons : false,
                         root.barConfig ? root.barConfig.iconScale : 1)
-                color: root.iconColor()
-                anchors.horizontalCenter: parent.horizontalCenter
-            }
-
-            StyledText {
-                text: root.codexAvailable ? Math.round(root.primaryPct) + "%" : "--"
-                font.pixelSize: Theme.fontSizeSmall
-                color: root.colorForPct(root.primaryPct)
-                anchors.horizontalCenter: parent.horizontalCenter
+                color: Theme.widgetIconColor
+                anchors.centerIn: parent
             }
         }
     }
@@ -192,97 +126,173 @@ PluginComponent {
     // --- click popout ---
 
     popoutContent: Component {
-        Column {
-            spacing: Theme.spacingS
-            width: parent ? parent.width : 300
+        PopoutComponent {
+            id: popout
 
-            StyledText {
-                text: root.codexAvailable ? "Codex Usage (" + root.planType + ")" : "Codex Usage"
-                font.pixelSize: Theme.fontSizeLarge
-                font.weight: Font.Bold
-                color: Theme.surfaceText
+            headerText: root.codexAvailable ? "Codex Usage" : "Codex Usage"
+            detailsText: {
+                if (!root.codexAvailable) return "Unavailable"
+                if (root.stale) return "Cached data \u2014 live fetch unavailable"
+                if (root.planType) return root.planType
+                return ""
             }
+            showCloseButton: true
 
-            StyledText {
-                visible: root.stale
-                text: "\u26a0 Cached data \u2014 live fetch unavailable"
-                font.pixelSize: Theme.fontSizeSmall
-                color: Theme.tempWarning
-            }
-
-            Rectangle {
+            Column {
+                id: popoutColumn
                 width: parent.width
-                height: 1
-                color: Theme.outlineVariant
-            }
+                spacing: Theme.spacingM
 
-            Row {
-                width: parent.width
-                spacing: Theme.spacingS
-                StyledText {
-                    text: "5h:"
-                    font.pixelSize: Theme.fontSizeMedium
-                    color: Theme.surfaceVariantText
-                    width: 60
-                }
-                StyledText {
-                    text: root.codexAvailable ? Math.round(root.primaryPct) + "% used" : "--"
-                    font.pixelSize: Theme.fontSizeMedium
-                    color: root.colorForPct(root.primaryPct)
-                }
-            }
+                // --- Primary window card ---
 
-            StyledText {
-                text: root.codexAvailable ? "resets in " + root.formatDuration(root.resetInSec(root.primaryResetAt)) : ""
-                font.pixelSize: Theme.fontSizeSmall
-                color: Theme.surfaceVariantText
-                leftPadding: 60
-                visible: root.codexAvailable
-            }
+                StyledRect {
+                    width: parent.width
+                    height: primaryColumn.implicitHeight + Theme.spacingM * 2
+                    radius: Theme.cornerRadius
+                    color: Theme.surfaceContainerHigh
 
-            Row {
-                width: parent.width
-                spacing: Theme.spacingS
-                StyledText {
-                    text: "Weekly:"
-                    font.pixelSize: Theme.fontSizeMedium
-                    color: Theme.surfaceVariantText
-                    width: 60
-                }
-                StyledText {
-                    text: root.codexAvailable ? Math.round(root.secondaryPct) + "% used" : "--"
-                    font.pixelSize: Theme.fontSizeMedium
-                    color: root.colorForPct(root.secondaryPct)
-                }
-            }
+                    Column {
+                        id: primaryColumn
+                        anchors.fill: parent
+                        anchors.margins: Theme.spacingM
+                        spacing: Theme.spacingS
 
-            StyledText {
-                text: root.codexAvailable ? "resets in " + root.formatDuration(root.resetInSec(root.secondaryResetAt)) : ""
-                font.pixelSize: Theme.fontSizeSmall
-                color: Theme.surfaceVariantText
-                leftPadding: 60
-                visible: root.codexAvailable
-            }
+                        Row {
+                            spacing: Theme.spacingXS
+                            width: parent.width
 
-            Row {
-                width: parent.width
-                spacing: Theme.spacingS
-                visible: root.showCredits && root.creditsData !== null
-                StyledText {
-                    text: "Credits:"
-                    font.pixelSize: Theme.fontSizeMedium
-                    color: Theme.surfaceVariantText
-                    width: 60
+                            DankIcon {
+                                name: "schedule"
+                                size: Theme.iconSize - 4
+                                color: Theme.primary
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
+
+                            StyledText {
+                                text: "5h Window"
+                                font.pixelSize: Theme.fontSizeSmall
+                                color: Theme.surfaceVariantText
+                                font.weight: Font.Medium
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
+                        }
+
+                        StyledText {
+                            text: root.codexAvailable ? Math.round(root.primaryPct) + "% used" : "--"
+                            font.pixelSize: Theme.fontSizeLarge
+                            font.weight: Font.Bold
+                            color: Theme.surfaceText
+                            width: parent.width
+                        }
+
+                        StyledText {
+                            text: root.codexAvailable ? "Resets in " + root.formatDuration(root.resetInSec(root.primaryResetAt)) : ""
+                            font.pixelSize: Theme.fontSizeSmall
+                            color: Theme.surfaceVariantText
+                            visible: root.codexAvailable
+                        }
+                    }
                 }
-                StyledText {
-                    text: root.creditsData ? "$" + root.creditsData.balance.toFixed(2) : "--"
-                    font.pixelSize: Theme.fontSizeMedium
-                    color: Theme.surfaceText
+
+                // --- Weekly window card ---
+
+                StyledRect {
+                    width: parent.width
+                    height: weeklyColumn.implicitHeight + Theme.spacingM * 2
+                    radius: Theme.cornerRadius
+                    color: Theme.surfaceContainerHigh
+
+                    Column {
+                        id: weeklyColumn
+                        anchors.fill: parent
+                        anchors.margins: Theme.spacingM
+                        spacing: Theme.spacingS
+
+                        Row {
+                            spacing: Theme.spacingXS
+                            width: parent.width
+
+                            DankIcon {
+                                name: "date_range"
+                                size: Theme.iconSize - 4
+                                color: Theme.primary
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
+
+                            StyledText {
+                                text: "Weekly Window"
+                                font.pixelSize: Theme.fontSizeSmall
+                                color: Theme.surfaceVariantText
+                                font.weight: Font.Medium
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
+                        }
+
+                        StyledText {
+                            text: root.codexAvailable ? Math.round(root.secondaryPct) + "% used" : "--"
+                            font.pixelSize: Theme.fontSizeLarge
+                            font.weight: Font.Bold
+                            color: Theme.surfaceText
+                            width: parent.width
+                        }
+
+                        StyledText {
+                            text: root.codexAvailable ? "Resets in " + root.formatDuration(root.resetInSec(root.secondaryResetAt)) : ""
+                            font.pixelSize: Theme.fontSizeSmall
+                            color: Theme.surfaceVariantText
+                            visible: root.codexAvailable
+                        }
+                    }
+                }
+
+                // --- Credits card ---
+
+                StyledRect {
+                    width: parent.width
+                    height: creditsColumn.implicitHeight + Theme.spacingM * 2
+                    radius: Theme.cornerRadius
+                    color: Theme.surfaceContainerHigh
+                    visible: root.showCredits && root.creditsData !== null
+
+                    Column {
+                        id: creditsColumn
+                        anchors.fill: parent
+                        anchors.margins: Theme.spacingM
+                        spacing: Theme.spacingS
+
+                        Row {
+                            spacing: Theme.spacingXS
+                            width: parent.width
+
+                            DankIcon {
+                                name: "payments"
+                                size: Theme.iconSize - 4
+                                color: Theme.primary
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
+
+                            StyledText {
+                                text: "Credits"
+                                font.pixelSize: Theme.fontSizeSmall
+                                color: Theme.surfaceVariantText
+                                font.weight: Font.Medium
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
+                        }
+
+                        StyledText {
+                            text: root.creditsData ? "$" + root.creditsData.balance.toFixed(2) : "--"
+                            font.pixelSize: Theme.fontSizeLarge
+                            font.weight: Font.Bold
+                            color: Theme.surfaceText
+                            width: parent.width
+                        }
+                    }
                 }
             }
         }
     }
 
-    popoutWidth: 300
-    popoutHeight: 240
+    popoutWidth: 320
+    popoutHeight: 420
 }
