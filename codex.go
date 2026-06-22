@@ -17,7 +17,8 @@ import (
 
 // Output is the top-level JSON written to stdout.
 type Output struct {
-	Codex CodexUsage `json:"codex"`
+	Codex  CodexUsage  `json:"codex"`
+	Claude ClaudeUsage `json:"claude"`
 }
 
 // CodexUsage is the Codex usage data for the bar widget.

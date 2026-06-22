@@ -17,7 +17,7 @@ PluginSettings {
 
     StyledText {
         width: parent.width
-        text: "Monitors Codex usage limits in the DankBar"
+        text: "Monitors Codex and Claude Code usage limits in the DankBar"
         font.pixelSize: Theme.fontSizeSmall
         color: Theme.surfaceVariantText
         wrapMode: Text.WordWrap
@@ -31,6 +31,20 @@ PluginSettings {
         maximum: 60
         defaultValue: 5
         unit: "s"
+    }
+
+    ToggleSetting {
+        settingKey: "showCodex"
+        label: "Show Codex"
+        description: "Display Codex usage cards in the popout"
+        defaultValue: true
+    }
+
+    ToggleSetting {
+        settingKey: "showClaude"
+        label: "Show Claude Code"
+        description: "Display Claude Code usage cards in the popout"
+        defaultValue: true
     }
 
     ToggleSetting {

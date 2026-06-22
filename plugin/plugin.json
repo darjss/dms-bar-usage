@@ -1,7 +1,7 @@
 {
     "id": "aiUsage",
     "name": "AI Usage",
-    "description": "Shows Codex usage limits in the DankBar",
+    "description": "Shows Codex and Claude Code usage limits in the DankBar",
     "version": "0.1.0",
     "author": "darjs",
     "icon": "smart_toy",
