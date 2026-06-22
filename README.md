@@ -134,6 +134,6 @@ Once merged, anyone can run `dms plugins install aiUsage`.
 
 ### Before publishing
 
-- Add a `screenshot.png` at the repo root and reference it in the registry JSON.
+- ~~Add a `screenshot.png` at the repo root and reference it in the registry JSON.~~ done
 - Tag a release (`git tag v0.1.0`) so `dms plugins update aiUsage` has a ref to update to.
 - Consider adding a `LICENSE` file.
