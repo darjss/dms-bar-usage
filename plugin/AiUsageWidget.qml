@@ -7,13 +7,11 @@ import qs.Modules.Plugins
 PluginComponent {
     id: root
 
-    // --- settings (auto-persisted via pluginData) ---
     property int refreshSeconds: pluginData.refreshSeconds || 5
     property bool showCredits: pluginData.showCredits === false ? false : true
     property bool showCodex: pluginData.showCodex === false ? false : true
     property bool showClaude: pluginData.showClaude === false ? false : true
 
-    // --- runtime state (codex) ---
     property bool codexAvailable: false
     property bool codexStale: false
     property string codexPlanType: ""
@@ -23,7 +21,6 @@ PluginComponent {
     property int codexSecondaryResetAt: 0
     property var codexCreditsData: null
 
-    // --- runtime state (claude) ---
     property bool claudeAvailable: false
     property bool claudeStale: false
     property string claudePlanType: ""
@@ -37,8 +34,6 @@ PluginComponent {
 
     property int refreshMs: refreshSeconds * 1000
 
-    // --- helpers ---
-
     function formatDuration(seconds) {
         if (seconds <= 0) return "now"
         var days = Math.floor(seconds / 86400)
@@ -50,8 +45,7 @@ PluginComponent {
     }
 
     function resetInSec(resetAt) {
-        var now = Math.floor(Date.now() / 1000)
-        return Math.max(0, resetAt - now)
+        return Math.max(0, resetAt - Math.floor(Date.now() / 1000))
     }
 
     function statusColor(pct) {
@@ -64,8 +58,6 @@ PluginComponent {
         if (!available) return ""
         return "Resets in " + formatDuration(resetInSec(resetAt))
     }
-
-    // --- data fetching ---
 
     function parseResponse(text) {
         if (!text || text.trim() === "") {
@@ -132,33 +124,13 @@ PluginComponent {
 
     Component.onCompleted: root.refresh()
 
-    // --- reusable usage bar: track + status-colored fill ---
-
-    component UsageBar : Item {
-        property real pct: 0
-        property bool available: true
-        height: 8
-        implicitHeight: 8
-
-        Rectangle {
-            anchors.fill: parent
-            radius: height / 2
-            color: Theme.surfaceContainerHighest
-        }
-
-        Rectangle {
-            height: parent.height
-            width: available ? parent.width * Math.min(1.0, Math.max(0.0, pct / 100.0)) : 0
-            radius: height / 2
-            color: !available ? Theme.surfaceContainerHighest
-                : pct >= 90 ? Theme.error
-                : pct >= 70 ? Theme.warning
-                : Theme.success
-            Behavior on width { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
-        }
+    component SectionHeader : StyledText {
+        font.pixelSize: Theme.fontSizeSmall
+        font.weight: Font.Bold
+        color: Theme.surfaceVariantText
+        font.letterSpacing: 1.5
+        width: parent.width
     }
-
-    // --- bar pills (icon only) ---
 
     horizontalBarPill: Component {
         Item {
@@ -190,8 +162,6 @@ PluginComponent {
         }
     }
 
-    // --- click popout ---
-
     popoutContent: Component {
         PopoutComponent {
             id: popout
@@ -207,423 +177,118 @@ PluginComponent {
             }
             showCloseButton: true
 
-            Column {
-                id: popoutColumn
+            Row {
+                id: columns
                 width: parent.width
                 spacing: Theme.spacingM
 
-                // ===== Codex section =====
-
-                StyledText {
-                    width: parent.width
-                    text: "CODEX"
-                    font.pixelSize: Theme.fontSizeSmall
-                    font.weight: Font.Bold
-                    color: Theme.surfaceVariantText
-                    font.letterSpacing: 1.5
-                    visible: root.showCodex
-                }
-
-                // Codex 5h window
-                StyledRect {
-                    width: parent.width
-                    height: codexPrimaryCol.implicitHeight + Theme.spacingM * 2
-                    radius: Theme.cornerRadius
-                    color: Theme.surfaceContainerHigh
+                Column {
+                    id: codexCol
+                    width: (parent.width - parent.spacing) / 2
+                    spacing: Theme.spacingS
                     visible: root.showCodex
 
-                    Column {
-                        id: codexPrimaryCol
-                        anchors.fill: parent
-                        anchors.margins: Theme.spacingM
-                        spacing: Theme.spacingS
+                    SectionHeader { text: "CODEX" }
 
-                        Row {
-                            spacing: Theme.spacingXS
-                            width: parent.width
+                    UsageCard {
+                        width: parent.width
+                        iconName: "schedule"
+                        labelText: "5h Window"
+                        valueText: root.codexAvailable ? Math.round(root.codexPrimaryPct) + "% used" : "--"
+                        valueColor: root.codexAvailable ? root.statusColor(root.codexPrimaryPct) : Theme.surfaceVariantText
+                        pct: root.codexPrimaryPct
+                        barAvailable: root.codexAvailable
+                        footerText: root.resetText(root.codexAvailable, root.codexPrimaryResetAt)
+                        showFooter: root.codexAvailable
+                    }
 
-                            DankIcon {
-                                name: "schedule"
-                                size: Theme.iconSize - 4
-                                color: Theme.primary
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
+                    UsageCard {
+                        width: parent.width
+                        iconName: "date_range"
+                        labelText: "Weekly"
+                        valueText: root.codexAvailable ? Math.round(root.codexSecondaryPct) + "% used" : "--"
+                        valueColor: root.codexAvailable ? root.statusColor(root.codexSecondaryPct) : Theme.surfaceVariantText
+                        pct: root.codexSecondaryPct
+                        barAvailable: root.codexAvailable
+                        footerText: root.resetText(root.codexAvailable, root.codexSecondaryResetAt)
+                        showFooter: root.codexAvailable
+                    }
 
-                            StyledText {
-                                text: "5h Window"
-                                font.pixelSize: Theme.fontSizeSmall
-                                color: Theme.surfaceVariantText
-                                font.weight: Font.Medium
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
-                        }
-
-                        StyledText {
-                            text: root.codexAvailable ? Math.round(root.codexPrimaryPct) + "% used" : "--"
-                            font.pixelSize: Theme.fontSizeLarge
-                            font.weight: Font.Bold
-                            color: root.codexAvailable ? root.statusColor(root.codexPrimaryPct) : Theme.surfaceVariantText
-                            width: parent.width
-                        }
-
-                        UsageBar {
-                            width: parent.width
-                            pct: root.codexPrimaryPct
-                            available: root.codexAvailable
-                        }
-
-                        StyledText {
-                            text: root.resetText(root.codexAvailable, root.codexPrimaryResetAt)
-                            font.pixelSize: Theme.fontSizeXSmall
-                            color: Theme.surfaceVariantText
-                            visible: root.codexAvailable
-                        }
+                    UsageCard {
+                        width: parent.width
+                        visible: root.showCredits && root.codexCreditsData !== null
+                        iconName: "payments"
+                        labelText: "Credits"
+                        valueText: root.codexCreditsData ? "$" + root.codexCreditsData.balance.toFixed(2) : "--"
+                        showBar: false
                     }
                 }
 
-                // Codex weekly window
-                StyledRect {
-                    width: parent.width
-                    height: codexWeeklyCol.implicitHeight + Theme.spacingM * 2
-                    radius: Theme.cornerRadius
-                    color: Theme.surfaceContainerHigh
-                    visible: root.showCodex
-
-                    Column {
-                        id: codexWeeklyCol
-                        anchors.fill: parent
-                        anchors.margins: Theme.spacingM
-                        spacing: Theme.spacingS
-
-                        Row {
-                            spacing: Theme.spacingXS
-                            width: parent.width
-
-                            DankIcon {
-                                name: "date_range"
-                                size: Theme.iconSize - 4
-                                color: Theme.primary
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
-
-                            StyledText {
-                                text: "Weekly Window"
-                                font.pixelSize: Theme.fontSizeSmall
-                                color: Theme.surfaceVariantText
-                                font.weight: Font.Medium
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
-                        }
-
-                        StyledText {
-                            text: root.codexAvailable ? Math.round(root.codexSecondaryPct) + "% used" : "--"
-                            font.pixelSize: Theme.fontSizeLarge
-                            font.weight: Font.Bold
-                            color: root.codexAvailable ? root.statusColor(root.codexSecondaryPct) : Theme.surfaceVariantText
-                            width: parent.width
-                        }
-
-                        UsageBar {
-                            width: parent.width
-                            pct: root.codexSecondaryPct
-                            available: root.codexAvailable
-                        }
-
-                        StyledText {
-                            text: root.resetText(root.codexAvailable, root.codexSecondaryResetAt)
-                            font.pixelSize: Theme.fontSizeXSmall
-                            color: Theme.surfaceVariantText
-                            visible: root.codexAvailable
-                        }
-                    }
-                }
-
-                // Codex credits
-                StyledRect {
-                    width: parent.width
-                    height: codexCreditsCol.implicitHeight + Theme.spacingM * 2
-                    radius: Theme.cornerRadius
-                    color: Theme.surfaceContainerHigh
-                    visible: root.showCodex && root.showCredits && root.codexCreditsData !== null
-
-                    Column {
-                        id: codexCreditsCol
-                        anchors.fill: parent
-                        anchors.margins: Theme.spacingM
-                        spacing: Theme.spacingS
-
-                        Row {
-                            spacing: Theme.spacingXS
-                            width: parent.width
-
-                            DankIcon {
-                                name: "payments"
-                                size: Theme.iconSize - 4
-                                color: Theme.primary
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
-
-                            StyledText {
-                                text: "Credits"
-                                font.pixelSize: Theme.fontSizeSmall
-                                color: Theme.surfaceVariantText
-                                font.weight: Font.Medium
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
-                        }
-
-                        StyledText {
-                            text: root.codexCreditsData ? "$" + root.codexCreditsData.balance.toFixed(2) : "--"
-                            font.pixelSize: Theme.fontSizeLarge
-                            font.weight: Font.Bold
-                            color: Theme.surfaceText
-                            width: parent.width
-                        }
-                    }
-                }
-
-                // ===== Claude Code section =====
-
-                StyledText {
-                    width: parent.width
-                    text: "CLAUDE CODE"
-                    font.pixelSize: Theme.fontSizeSmall
-                    font.weight: Font.Bold
-                    color: Theme.surfaceVariantText
-                    font.letterSpacing: 1.5
-                    visible: root.showClaude
-                }
-
-                // Claude 5h session
-                StyledRect {
-                    width: parent.width
-                    height: claudePrimaryCol.implicitHeight + Theme.spacingM * 2
-                    radius: Theme.cornerRadius
-                    color: Theme.surfaceContainerHigh
+                Column {
+                    id: claudeCol
+                    width: (parent.width - parent.spacing) / 2
+                    spacing: Theme.spacingS
                     visible: root.showClaude
 
-                    Column {
-                        id: claudePrimaryCol
-                        anchors.fill: parent
-                        anchors.margins: Theme.spacingM
-                        spacing: Theme.spacingS
+                    SectionHeader { text: "CLAUDE" }
 
-                        Row {
-                            spacing: Theme.spacingXS
-                            width: parent.width
-
-                            DankIcon {
-                                name: "bolt"
-                                size: Theme.iconSize - 4
-                                color: Theme.primary
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
-
-                            StyledText {
-                                text: "5h Session"
-                                font.pixelSize: Theme.fontSizeSmall
-                                color: Theme.surfaceVariantText
-                                font.weight: Font.Medium
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
-                        }
-
-                        StyledText {
-                            text: root.claudeAvailable ? Math.round(root.claudePrimaryPct) + "% used" : "--"
-                            font.pixelSize: Theme.fontSizeLarge
-                            font.weight: Font.Bold
-                            color: root.claudeAvailable ? root.statusColor(root.claudePrimaryPct) : Theme.surfaceVariantText
-                            width: parent.width
-                        }
-
-                        UsageBar {
-                            width: parent.width
-                            pct: root.claudePrimaryPct
-                            available: root.claudeAvailable
-                        }
-
-                        StyledText {
-                            text: root.resetText(root.claudeAvailable, root.claudePrimaryResetAt)
-                            font.pixelSize: Theme.fontSizeXSmall
-                            color: Theme.surfaceVariantText
-                            visible: root.claudeAvailable
-                        }
+                    UsageCard {
+                        width: parent.width
+                        iconName: "bolt"
+                        labelText: "5h Session"
+                        valueText: root.claudeAvailable ? Math.round(root.claudePrimaryPct) + "% used" : "--"
+                        valueColor: root.claudeAvailable ? root.statusColor(root.claudePrimaryPct) : Theme.surfaceVariantText
+                        pct: root.claudePrimaryPct
+                        barAvailable: root.claudeAvailable
+                        footerText: root.resetText(root.claudeAvailable, root.claudePrimaryResetAt)
+                        showFooter: root.claudeAvailable
                     }
-                }
 
-                // Claude weekly (all models)
-                StyledRect {
-                    width: parent.width
-                    height: claudeWeeklyCol.implicitHeight + Theme.spacingM * 2
-                    radius: Theme.cornerRadius
-                    color: Theme.surfaceContainerHigh
-                    visible: root.showClaude
-
-                    Column {
-                        id: claudeWeeklyCol
-                        anchors.fill: parent
-                        anchors.margins: Theme.spacingM
-                        spacing: Theme.spacingS
-
-                        Row {
-                            spacing: Theme.spacingXS
-                            width: parent.width
-
-                            DankIcon {
-                                name: "date_range"
-                                size: Theme.iconSize - 4
-                                color: Theme.primary
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
-
-                            StyledText {
-                                text: "Weekly (all models)"
-                                font.pixelSize: Theme.fontSizeSmall
-                                color: Theme.surfaceVariantText
-                                font.weight: Font.Medium
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
-                        }
-
-                        StyledText {
-                            text: root.claudeAvailable ? Math.round(root.claudeSecondaryPct) + "% used" : "--"
-                            font.pixelSize: Theme.fontSizeLarge
-                            font.weight: Font.Bold
-                            color: root.claudeAvailable ? root.statusColor(root.claudeSecondaryPct) : Theme.surfaceVariantText
-                            width: parent.width
-                        }
-
-                        UsageBar {
-                            width: parent.width
-                            pct: root.claudeSecondaryPct
-                            available: root.claudeAvailable
-                        }
-
-                        StyledText {
-                            text: root.resetText(root.claudeAvailable, root.claudeSecondaryResetAt)
-                            font.pixelSize: Theme.fontSizeXSmall
-                            color: Theme.surfaceVariantText
-                            visible: root.claudeAvailable
-                        }
+                    UsageCard {
+                        width: parent.width
+                        iconName: "date_range"
+                        labelText: "Weekly"
+                        valueText: root.claudeAvailable ? Math.round(root.claudeSecondaryPct) + "% used" : "--"
+                        valueColor: root.claudeAvailable ? root.statusColor(root.claudeSecondaryPct) : Theme.surfaceVariantText
+                        pct: root.claudeSecondaryPct
+                        barAvailable: root.claudeAvailable
+                        footerText: root.resetText(root.claudeAvailable, root.claudeSecondaryResetAt)
+                        showFooter: root.claudeAvailable
                     }
-                }
 
-                // Claude model-specific weekly (Sonnet/Opus)
-                StyledRect {
-                    width: parent.width
-                    height: claudeModelCol.implicitHeight + Theme.spacingM * 2
-                    radius: Theme.cornerRadius
-                    color: Theme.surfaceContainerHigh
-                    visible: root.showClaude && root.claudeModelSpecific !== null
-
-                    Column {
-                        id: claudeModelCol
-                        anchors.fill: parent
-                        anchors.margins: Theme.spacingM
-                        spacing: Theme.spacingS
-
-                        Row {
-                            spacing: Theme.spacingXS
-                            width: parent.width
-
-                            DankIcon {
-                                name: "memory"
-                                size: Theme.iconSize - 4
-                                color: Theme.primary
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
-
-                            StyledText {
-                                text: root.claudeModelSpecific ? "Weekly (" + root.claudeModelSpecific.label + ")" : ""
-                                font.pixelSize: Theme.fontSizeSmall
-                                color: Theme.surfaceVariantText
-                                font.weight: Font.Medium
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
-                        }
-
-                        StyledText {
-                            text: root.claudeModelSpecific ? Math.round(root.claudeModelSpecific.pct) + "% used" : "--"
-                            font.pixelSize: Theme.fontSizeLarge
-                            font.weight: Font.Bold
-                            color: root.claudeModelSpecific ? root.statusColor(root.claudeModelSpecific.pct) : Theme.surfaceVariantText
-                            width: parent.width
-                        }
-
-                        UsageBar {
-                            width: parent.width
-                            pct: root.claudeModelSpecific ? root.claudeModelSpecific.pct : 0
-                            available: root.claudeModelSpecific !== null
-                        }
-
-                        StyledText {
-                            text: root.claudeModelSpecific ? root.resetText(true, root.claudeModelSpecific.reset_at) : ""
-                            font.pixelSize: Theme.fontSizeXSmall
-                            color: Theme.surfaceVariantText
-                            visible: root.claudeModelSpecific
-                        }
+                    UsageCard {
+                        width: parent.width
+                        visible: root.claudeModelSpecific !== null
+                        iconName: "memory"
+                        labelText: root.claudeModelSpecific ? "Weekly (" + root.claudeModelSpecific.label + ")" : ""
+                        valueText: root.claudeModelSpecific ? Math.round(root.claudeModelSpecific.pct) + "% used" : "--"
+                        valueColor: root.claudeModelSpecific ? root.statusColor(root.claudeModelSpecific.pct) : Theme.surfaceVariantText
+                        pct: root.claudeModelSpecific ? root.claudeModelSpecific.pct : 0
+                        barAvailable: root.claudeModelSpecific !== null
+                        footerText: root.claudeModelSpecific ? root.resetText(true, root.claudeModelSpecific.reset_at) : ""
+                        showFooter: root.claudeModelSpecific !== null
                     }
-                }
 
-                // Claude extra usage / credits
-                StyledRect {
-                    width: parent.width
-                    height: claudeExtraCol.implicitHeight + Theme.spacingM * 2
-                    radius: Theme.cornerRadius
-                    color: Theme.surfaceContainerHigh
-                    visible: root.showClaude && root.claudeExtraUsage !== null
-
-                    Column {
-                        id: claudeExtraCol
-                        anchors.fill: parent
-                        anchors.margins: Theme.spacingM
-                        spacing: Theme.spacingS
-
-                        Row {
-                            spacing: Theme.spacingXS
-                            width: parent.width
-
-                            DankIcon {
-                                name: "add_circle"
-                                size: Theme.iconSize - 4
-                                color: Theme.primary
-                                anchors.verticalCenter: parent.verticalCenter
+                    UsageCard {
+                        width: parent.width
+                        visible: root.claudeExtraUsage !== null
+                        iconName: "add_circle"
+                        labelText: "Extra Usage"
+                        valueText: {
+                            if (!root.claudeExtraUsage) return "--"
+                            if (root.claudeExtraUsage.is_enabled) {
+                                return "$" + root.claudeExtraUsage.used_credits.toFixed(2) + " / $" + root.claudeExtraUsage.monthly_limit.toFixed(2)
                             }
-
-                            StyledText {
-                                text: "Extra Usage"
-                                font.pixelSize: Theme.fontSizeSmall
-                                color: Theme.surfaceVariantText
-                                font.weight: Font.Medium
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
+                            return root.claudeExtraUsage.disabled_reason ? root.claudeExtraUsage.disabled_reason : "disabled"
                         }
-
-                        StyledText {
-                            text: {
-                                if (!root.claudeExtraUsage) return "--"
-                                if (root.claudeExtraUsage.is_enabled) {
-                                    return "$" + root.claudeExtraUsage.used_credits.toFixed(2) + " / $" + root.claudeExtraUsage.monthly_limit.toFixed(2)
-                                }
-                                return root.claudeExtraUsage.disabled_reason ? root.claudeExtraUsage.disabled_reason : "disabled"
-                            }
-                            font.pixelSize: Theme.fontSizeLarge
-                            font.weight: Font.Bold
-                            color: Theme.surfaceText
-                            width: parent.width
-                        }
-
-                        UsageBar {
-                            width: parent.width
-                            pct: root.claudeExtraUsage ? root.claudeExtraUsage.utilization : 0
-                            available: root.claudeExtraUsage ? root.claudeExtraUsage.is_enabled : false
-                        }
+                        pct: root.claudeExtraUsage ? root.claudeExtraUsage.utilization : 0
+                        barAvailable: root.claudeExtraUsage ? root.claudeExtraUsage.is_enabled : false
                     }
                 }
             }
         }
     }
 
-    popoutWidth: 340
-    popoutHeight: 640
+    popoutWidth: 520
+    popoutHeight: 400
 }
